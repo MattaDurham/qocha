@@ -1,6 +1,6 @@
 [project]
 name = "qocha"
-version = "0.3.0"
+version = "0.3.1"
 description = "Local-first vault engine: hybrid semantic search and grounded, cited answers over a folder of markdown notes."
 readme = "README.md"
 requires-python = ">=3.10"

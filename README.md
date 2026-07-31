@@ -111,6 +111,7 @@ v = Vault("~/notes")            # defaults: Ollama embedder, Claude CLI answerer
 v.index()
 hits = v.search("mirror recoating tradeoff")
 out = v.ask("Why did we choose the recoat?")   # out["answer"], out["citations"]
+out = v.ask("Why?", hits=hits)  # answer over a hit set you already retrieved
 
 Indexer(v).start()              # background rescan + vector fill
 
@@ -122,13 +123,23 @@ An embedder is anything with `embed_documents(texts)` /
 `embed_query(text)` returning unit vectors (or `None` when
 unreachable); an answerer is any `prompt -> str` callable.
 
+## Development
+
+Tests are stdlib unittest - no extra install:
+
+    python -m unittest discover tests
+
+`AGENTS.md` carries the working contract for this repo - the invariants
+(POSIX vault paths, sqlite schema stability, the public injection seams)
+and the release ritual. Read it before changing the engine.
+
 ## Roadmap
 
 Qocha builds out in three stages:
 
 1. **Engine** (v0.1) - the index, hybrid search, and grounded cited
    ask described above.
-2. **Conventions + harness** (v0.2, this release) - the content
+2. **Conventions + harness** (v0.2) - the content
    conventions for the three-layer pattern (`conventions/`: the
    pattern, the wiki spec, a schema template, an adaptation
    checklist), the parallel ingest-agent contract (`harness/`), and
