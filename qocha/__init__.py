@@ -8,5 +8,5 @@ from .config import Config
 from .indexer import Indexer
 from .vault import Vault
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 __all__ = ["Vault", "Config", "Indexer", "__version__"]

@@ -36,7 +36,12 @@ from .embed import OllamaEmbedder
 
 EMBED_BATCH = 32
 RRF_K = 60
-NOTE_CAP = 40_000            # note_text() ceiling — notes feed models/UI
+NOTE_CAP = 40_000            # recommended cap for CONTEXT-WINDOW callers.
+# note_text() does not apply it unless asked -- see note_text's docstring.
+TRUNCATED = ("\n\n[truncated: showing the first {shown:,} of {total:,} "
+             "characters of {path}. This is a FRAGMENT, not the whole note. "
+             "Re-read with a larger cap before summarizing or concluding "
+             "anything about what the note does or does not contain.]")
 
 ASK_PROMPT = """You are {owner}'s personal research assistant. You answer \
 questions by drawing on excerpts from {owner}'s notes vault — a second \
@@ -351,8 +356,21 @@ class Vault:
         finally:
             con.close()
 
-    def note_text(self, path):
-        """Full markdown of one note, path-checked under the vault root."""
+    def note_text(self, path, cap=None):
+        """Full markdown of one note, path-checked under the vault root.
+
+        UNCAPPED BY DEFAULT. A reader that stops half way through a note
+        with no signal is indistinguishable from an ingest that only
+        captured half of it -- measured 2026-08-11 on a 97,396-char
+        podcast transcript served at 41%, which read as a broken ingest
+        of a file that was complete on disk. 493 of 16,605 notes in the
+        owner's vault exceed the old ceiling; the worst were served at 1%.
+
+        `cap` is for callers feeding a context window, and it is HONEST:
+        a truncated return says so IN BAND, so a model summarizing a
+        transcript cannot mistake a fragment for the whole note. Pass
+        NOTE_CAP for the recommended model-facing ceiling.
+        """
         root = self.config.root.resolve()
         target = (root / path).resolve()
         try:
@@ -361,7 +379,11 @@ class Vault:
             raise ValueError("path outside the vault") from None
         if target.suffix != ".md":
             raise ValueError("path outside the vault")
-        return target.read_text(errors="replace")[:NOTE_CAP]
+        text = target.read_text(errors="replace")
+        if cap is not None and cap >= 0 and len(text) > cap:
+            return text[:cap] + TRUNCATED.format(
+                shown=cap, total=len(text), path=path)
+        return text
 
     def status(self):
         con = self._connect()

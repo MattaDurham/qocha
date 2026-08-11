@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from qocha import Config, Vault
+from qocha.vault import NOTE_CAP
 
 
 class FakeEmbedder:
@@ -147,6 +148,30 @@ class VaultTests(unittest.TestCase):
                     "wiki/comets.txt"):
             with self.assertRaises(ValueError):
                 self.vault.note_text(bad)
+
+    def test_a_long_note_is_served_whole_by_default(self):
+        # The regression: a 97k-char transcript was served at 41% with no
+        # signal, which reads as a broken ingest of a complete file.
+        big = "x" * (NOTE_CAP * 3) + "\nTHE-END\n"
+        (self.root / "wiki" / "long.md").write_text(big, encoding="utf-8")
+        out = self.vault.note_text("wiki/long.md")
+        self.assertEqual(len(out), len(big))
+        self.assertTrue(out.endswith("THE-END\n"))
+
+    def test_an_explicit_cap_truncates_but_says_so_in_band(self):
+        big = "x" * 5_000
+        (self.root / "wiki" / "long.md").write_text(big, encoding="utf-8")
+        out = self.vault.note_text("wiki/long.md", cap=1_000)
+        self.assertTrue(out.startswith("x" * 1_000))
+        # the marker must name BOTH numbers -- a bare "truncated" leaves a
+        # model unable to tell whether it is missing 1% or 99%
+        self.assertIn("1,000", out)
+        self.assertIn("5,000", out)
+        self.assertIn("FRAGMENT", out)
+
+    def test_a_cap_the_note_fits_under_adds_no_marker(self):
+        (self.root / "wiki" / "short.md").write_text("hi", encoding="utf-8")
+        self.assertEqual(self.vault.note_text("wiki/short.md", cap=999), "hi")
 
     def test_paths_are_posix_on_every_platform(self):
         # Vault paths are logical identifiers — citations validate against
