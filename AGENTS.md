@@ -1,7 +1,7 @@
 # If you are an AI agent working on qocha
 
 Qocha is a small public library with one large downstream consumer: the
-Vira app (github.com/Helladuckets/vira) pins it by git tag in its
+Vira app (github.com/MattaDurham/vira) pins it by git tag in its
 requirements.txt and adapts it (server/vault.py there) against a live
 production index of thousands of notes. That coupling is what most of
 these rules protect.
