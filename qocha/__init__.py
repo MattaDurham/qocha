@@ -9,6 +9,6 @@ from .config import Config
 from .indexer import Indexer
 from .vault import Vault
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 __all__ = ["Vault", "Config", "Indexer", "survey", "commission_prompt",
            "unprocessed", "__version__"]

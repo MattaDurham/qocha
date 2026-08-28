@@ -304,6 +304,11 @@ def commission_prompt(root, tranche=40, raw_dir=None, cap=SURVEY_CAP):
     extraction = "\n".join(f"  {ext}  ->  {cmd}"
                            for ext, cmd in sorted(facts["extraction"].items()))
     listing = "\n".join(f"  {f}" for f in todo) or "  (none)"
+    # Composed here rather than inline so the count and its noun cannot be
+    # split across a line wrap in the rendered prompt.
+    tranche_label = f"{len(todo)} file" + ("" if len(todo) == 1 else "s")
+    remainder = (f"{remaining} source file remains" if remaining == 1
+                 else f"{remaining} source files remain")
     schema_state = ("The schema still carries unfilled {{params}} — adapting "
                     "it is task 1." if not facts["layers"]["schema_adapted"]
                     else "The schema is already adapted; extend it only where "
@@ -336,14 +341,14 @@ WHAT IS HERE NOW
 
 {schema_state}
 
-YOUR TRANCHE — {len(todo)} files, and only these
+YOUR TRANCHE — {tranche_label}, and only these
 
 {listing}
 
-This pass is deliberately bounded: {remaining} source files remain after
-it, and they are the next pass's job, not yours. Do not widen the scope
-to finish the corpus. A complete tranche that reports what it left is
-worth more than a rushed pass over everything.
+This pass is deliberately bounded: {remainder} after it, and that is the
+next pass's job, not yours. Do not widen the scope to finish the corpus.
+A complete tranche that reports what it left is worth more than a rushed
+pass over everything.
 
 EXTRACTION
 
