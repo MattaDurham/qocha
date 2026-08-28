@@ -43,7 +43,23 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/qocha init ~/notes         # seed raw/, wiki/, the schema file
 .venv/bin/qocha lint ~/notes         # structural lint of the wiki layer
 .venv/bin/qocha preflight ~/notes    # dangling source-edge check
+
+# an existing folder of mixed files, commissioned in place
+.venv/bin/qocha init ~/dump --attached   # your files ARE the corpus; nothing moves
+.venv/bin/qocha survey ~/dump            # what is here, and which layers exist
+.venv/bin/qocha commission ~/dump        # the prompt for one bounded writing pass
 ```
+
+`--attached` is for the folder that already has your stuff in it.
+Plain `init` makes a `raw/` for sources that have not arrived yet;
+attached mode records the folder itself as the corpus and adds only
+`wiki/`, `logs/` and the schema beside it, so nothing you own is moved,
+renamed, or rewritten. `commission` then prints a self-contained prompt
+— inventory, extraction table, one bounded tranche, the page contract —
+for whichever model you want to run it with. Qocha composes the
+contract and never calls a model itself. Run it again for the next
+tranche: a source counts as done when a wiki page cites it, so passes
+resume with no cursor to keep.
 
 Requirements: Python 3.10+, numpy. For semantic search: a local
 [Ollama](https://ollama.com) with `nomic-embed-text` pulled. For `ask`:

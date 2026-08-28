@@ -32,6 +32,22 @@ any engine change.
   answerer=)`, `chunk_markdown`, and `CHUNK_MAX` are imported and
   patched by the downstream adapter and its tests. Renaming or reshaping
   them is a breaking change - version it accordingly.
+- **`survey()` reports artifacts, never progress.** The downstream
+  consumer shows a setup step as finished off the dict it returns, so
+  every key under `layers` must be something observable on disk right
+  now - a file, a page count, an index. Never add a field recording what
+  a run *claimed* to do: a stored success flag outlives someone deleting
+  the wiki, and the step would go on reading "done" over an empty vault.
+  `layers` is a compatibility surface for the same reason the sqlite
+  schema is - adding keys is safe, renaming them is breaking.
+- **`commission_prompt()` composes; it never calls a model.** Qocha owns
+  the contract, the caller owns the model, the spend and the session.
+  Keep it a pure function of what is on disk.
+- **Attached vaults must never be reorganized.** `init --attached`
+  records `raw_dir: "."` and adds only generated surfaces; moving
+  someone's existing files into a `raw/` would break the one promise
+  layer 1 makes. `tests/test_commission.py` fingerprints the corpus
+  before and after to keep that honest.
 
 ## Release ritual
 

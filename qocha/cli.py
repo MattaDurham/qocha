@@ -7,7 +7,9 @@ Engine:
     qocha status <root> [--db PATH]
 
 Harness (see conventions/ and harness/ in the repo):
-    qocha init      <root> [--raw-dir raw] [--name NAME]
+    qocha init      <root> [--raw-dir raw] [--attached] [--name NAME]
+    qocha survey    <root> [--raw-dir DIR] [--json]
+    qocha commission <root> [--raw-dir DIR] [--tranche N]
     qocha lint      <root> [--raw-dir raw] [--wiki-dir wiki]
                            [--allow-unresolved-links]
     qocha preflight <root> [--raw-dir raw] [--wiki-dir wiki]
@@ -22,9 +24,18 @@ import json
 import sys
 import time
 
+from .commission import commission_prompt, survey
+from .config import Config
 from .lint import lint_vault, preflight
 from .scaffold import init_vault
 from .vault import Vault
+
+
+def _raw_dir(args):
+    """The corpus directory: an explicit flag, else whatever the vault
+    recorded at init. An attached vault stores "." and would otherwise be
+    linted against a raw/ that deliberately does not exist."""
+    return getattr(args, "raw_dir", None) or Config.load(args.root).raw_dir
 
 
 def _vault(args):
@@ -108,18 +119,56 @@ def cmd_status(args):
 
 
 def cmd_init(args):
-    created = init_vault(args.root, name=args.name, raw_dir=args.raw_dir)
+    created = init_vault(args.root, name=args.name, raw_dir=args.raw_dir,
+                         attached=args.attached)
     if created:
         for rel in created:
             print(f"created {rel}")
-        print("next: fill the {{params}} in CLAUDE.md "
-              "(conventions/adaptation-checklist.md walks it)")
     else:
         print("nothing to do — vault already has every layer")
+    if args.attached:
+        print("attached: your existing files are the corpus and were not "
+              "moved.\nnext: `qocha commission .` for the writing pass that "
+              "turns them into linked pages")
+    elif created:
+        print("next: fill the {{params}} in CLAUDE.md "
+              "(conventions/adaptation-checklist.md walks it)")
+    return 0
+
+
+def cmd_survey(args):
+    facts = survey(args.root, raw_dir=getattr(args, "raw_dir", None))
+    if args.json:
+        print(json.dumps(facts, indent=1))
+        return 0
+    lay = facts["layers"]
+    print(f"      corpus: {facts['raw_dir']}"
+          f"{'  (attached — the vault root)' if facts['attached'] else ''}")
+    print(f"       files: {facts['files']}"
+          f"{'  (capped, more remain)' if facts['truncated'] else ''}")
+    print(f" unprocessed: {facts['unprocessed']}")
+    print(f"      schema: {'adapted' if lay['schema_adapted'] else
+                           'present, still templated' if lay['schema']
+                           else 'missing'}")
+    print(f"        wiki: {lay['wiki']['pages']} pages")
+    print(f"       index: {'built' if lay['index'] else 'not built'}")
+    print(f" commissioned: {'yes' if lay['logs']['commissioned'] else 'no'}")
+    for row in facts["extensions"][:10]:
+        print(f"    {row['count']:>6}  {row['ext']}")
+    return 0
+
+
+def cmd_commission(args):
+    """Print the commissioning prompt. Qocha composes the contract; the
+    model that runs it is the caller's to choose, so this writes nothing
+    and spends nothing."""
+    print(commission_prompt(args.root, tranche=args.tranche,
+                            raw_dir=getattr(args, "raw_dir", None)))
     return 0
 
 
 def cmd_lint(args):
+    args.raw_dir = _raw_dir(args)
     problems = lint_vault(args.root, raw_dir=args.raw_dir,
                           wiki_dir=args.wiki_dir,
                           allow_unresolved=args.allow_unresolved_links)
@@ -130,6 +179,7 @@ def cmd_lint(args):
 
 
 def cmd_preflight(args):
+    args.raw_dir = _raw_dir(args)
     out = preflight(args.root, raw_dir=args.raw_dir,
                     wiki_dir=args.wiki_dir, pending_dir=args.pending_dir)
     for rel, target in out["pending"]:
@@ -191,14 +241,35 @@ def main(argv=None):
 
     sp = sub.add_parser("init", help="seed a three-layer vault skeleton")
     sp.add_argument("root", help="vault root directory")
-    sp.add_argument("--raw-dir", default="raw")
+    sp.add_argument("--raw-dir", default=None,
+                    help="corpus directory (default: raw, or the vault root "
+                         "with --attached)")
+    sp.add_argument("--attached", action="store_true",
+                    help="the folder already holds your files: treat them as "
+                         "the corpus in place and add only the generated "
+                         "layers beside them")
     sp.add_argument("--name", default=None,
                     help="vault display name (default: directory name)")
     sp.set_defaults(fn=cmd_init)
 
+    sp = sub.add_parser("survey", help="what is in the corpus, and which "
+                                       "layers exist")
+    sp.add_argument("root", help="vault root directory")
+    sp.add_argument("--raw-dir", default=None)
+    sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=cmd_survey)
+
+    sp = sub.add_parser("commission",
+                        help="print the commissioning prompt for one tranche")
+    sp.add_argument("root", help="vault root directory")
+    sp.add_argument("--raw-dir", default=None)
+    sp.add_argument("--tranche", type=int, default=40,
+                    help="sources this pass covers (default 40)")
+    sp.set_defaults(fn=cmd_commission)
+
     sp = sub.add_parser("lint", help="structural lint of the wiki layer")
     sp.add_argument("root", help="vault root directory")
-    sp.add_argument("--raw-dir", default="raw")
+    sp.add_argument("--raw-dir", default=None)
     sp.add_argument("--wiki-dir", default="wiki")
     sp.add_argument("--allow-unresolved-links", action="store_true",
                     help="treat unresolved [[wikilinks]] as intentional "
@@ -208,7 +279,7 @@ def main(argv=None):
     sp = sub.add_parser("preflight",
                         help="ingest preflight: dangling source edges")
     sp.add_argument("root", help="vault root directory")
-    sp.add_argument("--raw-dir", default="raw")
+    sp.add_argument("--raw-dir", default=None)
     sp.add_argument("--wiki-dir", default="wiki")
     sp.add_argument("--pending-dir", default="pending-user-deletion")
     sp.set_defaults(fn=cmd_preflight)

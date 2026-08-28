@@ -16,7 +16,7 @@ CONFIG_FILE = "qocha.json"
 
 # Fields a vault-root qocha.json may set.
 _JSON_FIELDS = ("dirs", "owner", "db", "ollama_url", "embed_model",
-                "answer_model")
+                "answer_model", "raw_dir")
 
 
 @dataclass
@@ -24,6 +24,12 @@ class Config:
     root: Path
     dirs: list | None = None          # None = the whole vault, recursively
     db: Path | None = None            # default: <root>/.qocha/index.sqlite
+    # Where the immutable source corpus lives, vault-relative. "." means
+    # the sources ARE the vault root — an attached folder that already
+    # held files before qocha saw it, which must never be reorganized
+    # into a raw/ subdirectory. Persisted so lint, preflight and the
+    # commissioning survey all agree about which files are sources.
+    raw_dir: str = "raw"
     owner: str = "the owner"
     ollama_url: str = "http://localhost:11434"
     embed_model: str = "nomic-embed-text"
