@@ -141,6 +141,24 @@ class VaultTests(unittest.TestCase):
         self.assertEqual(out["seen"], 3)
         self.assertFalse(scoped.search("archived"))
 
+    def test_a_listed_dir_still_skips_excluded_and_dot_dirs(self):
+        # Until v0.4.3 the explicit-dirs branch applied NEITHER filter, so
+        # listing a directory dragged in every vendored .venv package under
+        # it and there was no way to take a tree while skipping one branch.
+        write(self.root, "raw/talk.md", "# Talk\nfull transcript here")
+        write(self.root, "raw/clips/one.md", "# Clip\nclipping one")
+        write(self.root, "raw/.venv/lib/LICENSE.md", "# Vendored\nlicense")
+        cfg = Config(root=self.root, dirs=["raw"],
+                     exclude_dirs={"clips"},
+                     db=self.tmp / "filtered.sqlite")
+        scoped = Vault(self.root, config=cfg, embedder=self.embedder,
+                       answerer=lambda p: "unused")
+        scoped.scan()
+        paths = {h["path"] for h in scoped.search("transcript")}
+        self.assertIn("raw/talk.md", paths)
+        self.assertFalse(scoped.search("clipping"))
+        self.assertFalse(scoped.search("Vendored"))
+
     def test_note_text_and_traversal_guard(self):
         self.vault.scan()
         self.assertIn("Comets", self.vault.note_text("wiki/comets.md"))

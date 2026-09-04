@@ -128,18 +128,32 @@ class Vault:
         if not root.is_dir():
             return
         exclude = self.config.exclude_dirs
+
+        def keep(f):
+            # Judged against the path from ROOT, not from the listed dir, so
+            # an excluded name means the same thing whichever branch walks it.
+            parts = f.relative_to(root).parts[:-1]
+            return not any(p in exclude or p.startswith(".") for p in parts)
+
         if self.config.dirs is None:
             for f in sorted(root.rglob("*.md")):
-                rel_parts = f.relative_to(root).parts[:-1]
-                if any(p in exclude or p.startswith(".") for p in rel_parts):
-                    continue
-                yield f
+                if keep(f):
+                    yield f
         else:
             yield from sorted(root.glob("*.md"))
             for d in self.config.dirs:
                 base = root / d
-                if base.is_dir():
-                    yield from sorted(base.rglob("*.md"))
+                if not base.is_dir():
+                    continue
+                # exclude_dirs and dotdirs apply HERE TOO. They did not until
+                # v0.4.3, so listing a dir pulled in every .venv and vendored
+                # package under it, and a caller could not list a tree while
+                # skipping one branch of it — the only way to reach loose
+                # files at a directory's top level was to take its subtrees
+                # as well.
+                for f in sorted(base.rglob("*.md")):
+                    if keep(f):
+                        yield f
 
     def _rel(self, path):
         # Vault paths are logical identifiers — citations validate against
