@@ -48,15 +48,29 @@ def _yaml_unescape(s):
 
 def _walk_targets(root):
     """(file names + stems, dir names) resolvable under `root`,
-    following symlinks."""
+    following symlinks.
+
+    Every target is recorded under two spellings: the bare name (or stem)
+    Obsidian's shortest-path resolver accepts, and the vault-relative path
+    (`raw/family/note.md`, `raw/family/note`, `raw/family`) that a vault
+    writing path-qualified links puts in `source:`. Paths are POSIX on
+    every platform, matching the identifier rule in `qocha/vault.py`.
+    `root` is `<vault>/<raw_dir>`, so the vault is `root.parent`."""
     files, dirs = set(), set()
     if not root.is_dir():
         return files, dirs
+    vault = root.parent
     for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
-        dirs.update(dirnames)
+        here = Path(dirpath)
+        for d in dirnames:
+            dirs.add(d)
+            dirs.add((here / d).relative_to(vault).as_posix())
         for f in filenames:
+            rel = (here / f).relative_to(vault)
             files.add(f)
             files.add(Path(f).stem)
+            files.add(rel.as_posix())
+            files.add(rel.with_suffix("").as_posix())
     return files, dirs
 
 

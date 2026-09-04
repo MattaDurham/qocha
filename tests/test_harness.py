@@ -155,6 +155,29 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(out["orphans"],
                          [("wiki/a-fine-source.md", "memo.txt")])
 
+    def test_path_qualified_source_edges_resolve(self):
+        # A vault that writes `source:` with its raw/ directory (the form
+        # TC-IL adopted 2026-08-11) must not read as 7,640 orphans.
+        write(self.vault, "raw/family/note.md", "body")
+        for i, target in enumerate(["raw/family/note.md",
+                                    "raw/family/note",
+                                    "raw/memo.txt",
+                                    "raw/family"]):
+            write(self.vault, f"wiki/qualified-{i}.md",
+                  GOOD_SUMMARY.replace("[[memo.txt]]", f"[[{target}]]"))
+        out = preflight(self.vault)
+        self.assertEqual(out, {"orphans": [], "pending": []})
+        problems = [m for _, m in lint_vault(self.vault)
+                    if "source target not found" in m]
+        self.assertEqual(problems, [])
+
+    def test_path_qualified_orphan_still_detected(self):
+        write(self.vault, "wiki/gone.md",
+              GOOD_SUMMARY.replace("[[memo.txt]]", "[[raw/family/gone.md]]"))
+        out = preflight(self.vault)
+        self.assertEqual(out["orphans"],
+                         [("wiki/gone.md", "raw/family/gone.md")])
+
     def test_pending_is_info_not_orphan(self):
         pending = self.vault / "pending-user-deletion"
         pending.mkdir()
