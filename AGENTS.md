@@ -58,3 +58,11 @@ any engine change.
    `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`.
 3. The downstream pin advances by tag - a bump that is never tagged, or
    a tag the pin never advances to, reaches no one.
+
+## Merging into main
+
+"Merge it" from the owner covers the whole merge into main. Qocha has no
+online checks: run the tests above, merge and push. If online checks are
+ever added, do not wait for ones still running; stop only on one that has
+already failed, and watch main's run after the push and fix main if it
+fails. When the owner says the checks are not needed, skip them.
